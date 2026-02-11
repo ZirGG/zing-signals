@@ -1,0 +1,2 @@
+# zing-signals
+CryptoSignal
