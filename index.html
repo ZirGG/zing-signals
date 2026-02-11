@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -1181,6 +1181,38 @@
             if (backupKeys.length > 5) {
                 backupKeys.sort().slice(0, -5).forEach(k => localStorage.removeItem(k));
             }
+        }
+        
+        // ============================================
+        // 💾 SALVAR E CARREGAR CONFIGURAÇÕES
+        // ============================================
+        function saveConfig() {
+            try {
+                localStorage.setItem('appConfig', JSON.stringify(config));
+                if (config.autoBackup) {
+                    localStorage.setItem(`appConfig_backup_${Date.now()}`, JSON.stringify(config));
+                    cleanOldBackups('appConfig');
+                }
+                console.log('✅ Configurações salvas:', config);
+            } catch (e) {
+                console.error('❌ Erro ao salvar configurações:', e);
+            }
+        }
+        
+        function loadConfig() {
+            try {
+                const savedConfig = localStorage.getItem('appConfig');
+                if (savedConfig) {
+                    const parsed = JSON.parse(savedConfig);
+                    // Mesclar configurações salvas com as padrões
+                    Object.assign(config, parsed);
+                    console.log('✅ Configurações carregadas:', config);
+                    return true;
+                }
+            } catch (e) {
+                console.error('❌ Erro ao carregar configurações:', e);
+            }
+            return false;
         }
         
         // ============================================
@@ -3407,6 +3439,9 @@
         function changeCrypto(symbol) {
             config.symbol = symbol;
             
+            // 💾 Salvar configuração
+            saveConfig();
+            
             // Atualizar título e símbolos
             const symbolName = symbol.replace('USDT', '');
             
@@ -3610,6 +3645,9 @@
             }
             
             console.log(`📊 Score mínimo atualizado: ${numValue} | Modo: ${newMode}`);
+            
+            // 💾 Salvar configuração
+            saveConfig();
         }
         
         function updateLeverage() {
@@ -3649,6 +3687,9 @@
             updateOverallStats();
             
             showNotification(`Alavancagem Ajustada`, `Novo valor: ${config.leverage}x (era ${oldLeverage}x)`, 'info', 3000);
+            
+            // 💾 Salvar configuração
+            saveConfig();
         }
         
         // 🧠 FUNÇÃO DE TESTE: Forçar verificação do sistema adaptativo
@@ -3813,6 +3854,9 @@
             
             intervalId = setInterval(performAnalysis, config.refreshInterval);
             showNotification(`Intervalo Atualizado`, `Atualizando a cada ${config.refreshInterval / 1000}s`, 'info', 3000);
+            
+            // 💾 Salvar configuração
+            saveConfig();
         }
         
         function reconnectWebSockets() {
@@ -4799,21 +4843,45 @@
             }
             
             function initializeApp() {
+                // 💾 Carregar configurações salvas
+                loadConfig();
+                
+                // Atualizar checkboxes com valores carregados
+                document.getElementById('soundNotifications').checked = config.soundNotifications;
+                document.getElementById('visualNotifications').checked = config.visualNotifications;
+                document.getElementById('trendFilter').checked = config.trendFilter;
+                document.getElementById('divergenceDetection').checked = config.divergenceDetection;
+                document.getElementById('whaleTracking').checked = config.whaleTracking;
+                document.getElementById('autoBackup').checked = config.autoBackup;
+                
+                // Atualizar selects
+                document.getElementById('leverageSelect').value = config.leverage;
+                document.getElementById('cryptoSelect').value = config.symbol;
+                document.getElementById('refreshInterval').value = config.refreshInterval;
+                
                 // Inicializar valor do Score Mínimo no input
                 document.getElementById('minSignalStrength').value = config.minSignalStrength;
                 updateMinSignalStrength(config.minSignalStrength);
                 
+                // Inicializar rastreamento de baleias se necessário
+                if (config.whaleTracking) {
+                    setTimeout(() => initWhaleTracking(), 1000);
+                }
+                
                 // Configurar event listeners
                 document.getElementById('soundNotifications').addEventListener('change', (e) => {
                     config.soundNotifications = e.target.checked;
+                    saveConfig();
                 });
                 
                 document.getElementById('visualNotifications').addEventListener('change', (e) => {
                     config.visualNotifications = e.target.checked;
+                    saveConfig();
                 });
                 
                 document.getElementById('trendFilter').addEventListener('change', (e) => {
                     config.trendFilter = e.target.checked;
+                    saveConfig();
                     showNotification(
                         'Filtro de Tendência',
                         e.target.checked ? 'Ativado - Sinais filtrados por tendência' : 'Desativado',
@@ -4824,6 +4892,7 @@
                 
                 document.getElementById('divergenceDetection').addEventListener('change', (e) => {
                     config.divergenceDetection = e.target.checked;
+                    saveConfig();
                     showNotification(
                         'Detecção de Divergências',
                         e.target.checked ? 'Ativada - Buscando divergências RSI/Preço' : 'Desativada',
@@ -4834,6 +4903,7 @@
                 
                 document.getElementById('whaleTracking').addEventListener('change', (e) => {
                     config.whaleTracking = e.target.checked;
+                    saveConfig();
                     if (e.target.checked) {
                         initWhaleTracking();
                     } else if (state.wsOrderbook) {
@@ -4849,6 +4919,7 @@
                 
                 document.getElementById('autoBackup').addEventListener('change', (e) => {
                     config.autoBackup = e.target.checked;
+                    saveConfig();
                     showNotification(
                         'Auto-Backup',
                         e.target.checked ? 'Ativado - Histórico será salvo automaticamente' : 'Desativado',
